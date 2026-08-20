@@ -1,0 +1,33 @@
+# Local credentials and settings
+config/secrets.json
+config/settings.json
+
+# Student sources, reports, and local database
+data/*
+!data/.gitkeep
+
+# Runtime and test scratch files
+temp/
+.pytest_cache/
+**/__pycache__/
+*.py[cod]
+
+# Virtual environments and local tooling
+.venv/
+venv/
+.env
+.env.*
+.coverage
+htmlcov/
+
+# Build outputs
+build/
+dist/
+*.spec.local
+
+# IDE and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
