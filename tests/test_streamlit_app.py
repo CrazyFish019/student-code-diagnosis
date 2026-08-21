@@ -1,8 +1,12 @@
 """Browser-free smoke tests for the simplified AI diagnosis page."""
 
+from concurrent.futures import Future
 from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
+
+from models.ai_code_diagnosis import AICodeDiagnosis, AIConclusion
+from ui.app import _finish_background_diagnosis_if_ready
 
 APP_PATH = Path(__file__).resolve().parents[1] / "app.py"
 
@@ -85,6 +89,44 @@ def test_running_diagnosis_keeps_one_disabled_button_in_place(
     assert len(diagnosis_buttons) == 1
     assert diagnosis_buttons[0].disabled is True
     assert not any(item.label == "诊断进行中…" for item in app.button)
+    assert app.radio[0].disabled is True
+    import_button = next(item for item in app.button if item.label == "获取题目信息")
+    assert import_button.disabled is True
+
+
+def test_report_section_is_not_configured_for_permanent_auto_refresh() -> None:
+    source = (APP_PATH.parent / "ui" / "app.py").read_text(encoding="utf-8")
+
+    assert "@st.fragment(run_every=0.75)\ndef _render_diagnosis_section" not in source
+    assert "@st.fragment(run_every=0.75)\ndef _render_diagnosis_progress" in source
+
+
+def test_completed_background_diagnosis_is_collected_exactly_once() -> None:
+    diagnosis = AICodeDiagnosis(
+        conclusion=AIConclusion.UNCERTAIN,
+        summary="需要结合更多数据判断。",
+        categories=("uncertain",),
+        root_cause="证据不足。",
+        evidence=(),
+        sample_analysis=(),
+        suggestions=("补充测试数据。",),
+        teacher_feedback="建议人工复核。",
+        student_feedback="请补充更多测试。",
+        confidence=0.5,
+        limitations=("仅供教学参考。",),
+    )
+    future: Future[tuple[AICodeDiagnosis, None]] = Future()
+    future.set_result((diagnosis, None))
+    state: dict[str, object] = {
+        "ai_diagnosis_future": future,
+        "ai_diagnosis_running": True,
+    }
+
+    assert _finish_background_diagnosis_if_ready(state) is True
+    assert state["ai_code_diagnosis"] is diagnosis
+    assert state["ai_diagnosis_running"] is False
+    assert "ai_diagnosis_future" not in state
+    assert _finish_background_diagnosis_if_ready(state) is False
 
 
 def test_submission_mode_requires_saved_website_credentials(tmp_path, monkeypatch) -> None:

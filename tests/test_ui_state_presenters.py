@@ -22,6 +22,7 @@ from ui.state import (
     mark_task_running,
     consume_ai_diagnosis_request,
     finish_ai_diagnosis,
+    is_ai_diagnosis_active,
     pop_ai_diagnosis_notice,
     request_ai_diagnosis,
     consume_testcase_details_open,
@@ -96,6 +97,18 @@ def test_ai_diagnosis_request_is_locked_and_consumed_once() -> None:
     assert state["ai_diagnosis_running"] is False
     assert pop_ai_diagnosis_notice(state) == ("error", "请求超时")
     assert pop_ai_diagnosis_notice(state) is None
+
+
+def test_existing_background_future_keeps_diagnosis_locked() -> None:
+    state: dict[str, object] = {
+        "ai_diagnosis_running": False,
+        "ai_diagnosis_requested": False,
+        "ai_diagnosis_future": object(),
+    }
+
+    assert is_ai_diagnosis_active(state) is True
+    assert request_ai_diagnosis(state) is False
+    assert state["ai_diagnosis_future"] is not None
 
 
 def test_testcase_action_keeps_expander_open_for_exactly_one_rerun() -> None:

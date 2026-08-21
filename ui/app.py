@@ -1,6 +1,8 @@
 """Streamlit composition for single-problem AI code diagnosis."""
 
+from collections.abc import MutableMapping
 from concurrent.futures import Future, ThreadPoolExecutor
+from typing import Any
 
 import streamlit as st
 
@@ -24,6 +26,7 @@ from ui.state import (
     consume_ai_diagnosis_request,
     finish_ai_diagnosis,
     initialize_session_state,
+    is_ai_diagnosis_active,
     pop_ai_diagnosis_notice,
     request_ai_diagnosis,
 )
@@ -49,10 +52,12 @@ def main() -> None:
     credentials = render_vesibay_settings()
     settings, api_key = render_model_settings()
     render_update_view()
+    diagnosis_active = is_ai_diagnosis_active(st.session_state)
     mode = st.radio(
         "诊断方式",
         ("题目网址＋粘贴代码", "提交详情网址"),
         horizontal=True,
+        disabled=diagnosis_active,
     )
     oj_evidence = None
     if mode == "题目网址＋粘贴代码":
@@ -72,7 +77,6 @@ def main() -> None:
     )
 
 
-@st.fragment(run_every=0.75)
 def _render_diagnosis_section(
     *,
     problem: ImportedProblem | None,
@@ -91,7 +95,7 @@ def _render_diagnosis_section(
     if notice is not None:
         level, message = notice
         (notice_slot.success if level == "success" else notice_slot.error)(message)
-    diagnosis_running = bool(st.session_state.get("ai_diagnosis_running"))
+    diagnosis_running = is_ai_diagnosis_active(st.session_state)
     button_column, option_column = st.columns((1, 3), vertical_alignment="center")
     with button_column:
         st.button(
@@ -118,7 +122,8 @@ def _render_diagnosis_section(
         if send_selected_cases:
             st.caption("本地执行有超时和进程树清理，但不是恶意代码安全沙箱。")
     if diagnosis_running:
-        progress_slot.info("模型正在分析题目和代码，请勿重复点击…")
+        with progress_slot.container():
+            _render_diagnosis_progress()
     if consume_ai_diagnosis_request(st.session_state):
         if problem is None:
             finish_ai_diagnosis(
@@ -143,6 +148,10 @@ def _render_diagnosis_section(
             oj_evidence,
             selected_case_ids if send_selected_cases else (),
         )
+        st.session_state["ai_diagnosis_running"] = True
+        if not diagnosis_running:
+            with progress_slot.container():
+                _render_diagnosis_progress()
 
     diagnosis = st.session_state.get("ai_code_diagnosis")
     if isinstance(diagnosis, AICodeDiagnosis):
@@ -153,6 +162,15 @@ def _render_diagnosis_section(
                     st.session_state.get("ai_diagnosis_has_oj_evidence")
                 ),
             )
+
+
+@st.fragment(run_every=0.75)
+def _render_diagnosis_progress() -> None:
+    """Poll only while a diagnosis is active; stop after one full rerun."""
+
+    if _finish_background_diagnosis_if_ready():
+        st.rerun()
+    st.info("模型正在分析题目和代码，请勿重复点击…")
 
 
 def _perform_diagnosis(
@@ -180,34 +198,38 @@ def _perform_diagnosis(
     return diagnosis, updated_evidence
 
 
-def _finish_background_diagnosis_if_ready() -> None:
-    future = st.session_state.get("ai_diagnosis_future")
+def _finish_background_diagnosis_if_ready(
+    state: MutableMapping[str, Any] | None = None,
+) -> bool:
+    session = st.session_state if state is None else state
+    future = session.get("ai_diagnosis_future")
     if not isinstance(future, Future) or not future.done():
-        return
-    st.session_state.pop("ai_diagnosis_future", None)
+        return False
+    session.pop("ai_diagnosis_future", None)
     try:
         diagnosis, updated_evidence = future.result()
     except (AIDiagnosisError, SelectedCaseExecutionError) as exc:
         finish_ai_diagnosis(
-            st.session_state,
+            session,
             level="error",
             message=str(exc),
         )
     except Exception:
         finish_ai_diagnosis(
-            st.session_state,
+            session,
             level="error",
             message="诊断过程中发生内部错误，请稍后重试。",
         )
     else:
         if updated_evidence is not None:
-            st.session_state["vesibay_submission_evidence"] = updated_evidence
-        st.session_state["ai_code_diagnosis"] = diagnosis
-        st.session_state["ai_diagnosis_has_oj_evidence"] = (
+            session["vesibay_submission_evidence"] = updated_evidence
+        session["ai_code_diagnosis"] = diagnosis
+        session["ai_diagnosis_has_oj_evidence"] = (
             updated_evidence is not None
         )
         finish_ai_diagnosis(
-            st.session_state,
+            session,
             level="success",
             message="AI诊断完成。",
         )
+    return True

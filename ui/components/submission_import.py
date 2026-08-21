@@ -10,7 +10,7 @@ from services.vesibay_readonly_client import (
     VesibayCredentials,
     VesibayReadOnlyClient,
 )
-from ui.state import clear_ai_diagnosis
+from ui.state import clear_ai_diagnosis, is_ai_diagnosis_active
 from ui.components.testcase_details import render_source_code, render_testcase_details
 
 
@@ -23,7 +23,11 @@ def render_submission_import(
         placeholder="请粘贴提交详情网址",
         key="submission_detail_url",
     )
-    if st.button("获取提交信息", type="primary"):
+    if st.button(
+        "获取提交信息",
+        type="primary",
+        disabled=is_ai_diagnosis_active(st.session_state),
+    ):
         clear_ai_diagnosis(st.session_state)
         if credentials is None:
             st.error("请先在侧边栏填写并保存有效的网站账号。")

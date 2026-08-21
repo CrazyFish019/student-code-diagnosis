@@ -6,7 +6,7 @@ import streamlit as st
 
 from models.imported_problem import ImportedProblem, ProblemExample
 from services.problem_importer import ProblemImportError, import_public_problem
-from ui.state import clear_ai_diagnosis
+from ui.state import clear_ai_diagnosis, is_ai_diagnosis_active
 
 
 def render_problem_import() -> ImportedProblem | None:
@@ -16,7 +16,11 @@ def render_problem_import() -> ImportedProblem | None:
         placeholder="请粘贴公开题目网址",
         key="problem_url",
     )
-    if st.button("获取题目信息", type="primary"):
+    if st.button(
+        "获取题目信息",
+        type="primary",
+        disabled=is_ai_diagnosis_active(st.session_state),
+    ):
         clear_ai_diagnosis(st.session_state)
         try:
             with st.spinner("正在获取题目…"):

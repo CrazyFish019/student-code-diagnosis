@@ -8,7 +8,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_release_version_and_source_launcher_are_ready() -> None:
-    assert __version__ == "1.0.0"
+    assert __version__ == "1.0.1"
     assert UPDATE_REPOSITORY == "CrazyFish019/student-code-diagnosis"
     assert launcher.application_script() == PROJECT_ROOT / "app.py"
     port = launcher.available_port(18451, 18460)

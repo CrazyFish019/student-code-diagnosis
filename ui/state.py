@@ -76,13 +76,23 @@ def clear_ai_diagnosis(state: MutableMapping[str, Any]) -> None:
 def request_ai_diagnosis(state: MutableMapping[str, Any]) -> bool:
     """Queue one diagnosis and lock the button before Streamlit reruns."""
 
-    if state.get("ai_diagnosis_running"):
+    if is_ai_diagnosis_active(state):
         return False
     state["ai_diagnosis_running"] = True
     state["ai_diagnosis_requested"] = True
     state["ai_diagnosis_notice"] = None
     state["ai_code_diagnosis"] = None
     return True
+
+
+def is_ai_diagnosis_active(state: MutableMapping[str, Any]) -> bool:
+    """Return whether a request or an uncollected background task exists."""
+
+    return bool(
+        state.get("ai_diagnosis_running")
+        or state.get("ai_diagnosis_requested")
+        or state.get("ai_diagnosis_future") is not None
+    )
 
 
 def consume_ai_diagnosis_request(state: MutableMapping[str, Any]) -> bool:
