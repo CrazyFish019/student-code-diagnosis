@@ -2,13 +2,13 @@
 
 一个面向信息学教师的本地单题 C++ 代码 AI 诊断工具。
 
-当前默认工作流不进行本地编译判题。教师可以输入 Vesibay 题目网址并粘贴一份
+当前默认工作流不进行本地编译判题。教师可以输入特定练习网站的题目网址并粘贴一份
 C++ 代码，也可以使用已授权的网站管理员账号读取提交详情和 OJ 判题证据，再使用
 自己配置的模型 API 获得结构化教学诊断。
 
 ## 当前功能
 
-- 通过 `https://www.vesibay.cn/problem/<题号>` 导入公开题；
+- 通过特定练习网站的题目网址导入公开题；
 - 支持训练页面中仍属于公开题库的 `/training/<训练ID>/problem/<题号>` 地址；
 - 自动获取题号、标题、描述、输入、输出、提示、限制和公开样例；
 - 导入后可在页面中校对和编辑题面；
@@ -21,7 +21,7 @@ C++ 代码，也可以使用已授权的网站管理员账号读取提交详情�
 - 可设置 API 基础地址、模型名称、思考/非思考模式、超时和输出长度；
 - 使用 JSON Output 并在本地严格校验诊断结果；
 - 展示结论、可信度、问题类别、代码证据、样例推演、建议和教学反馈。
-- API Key 和 Vesibay 账号使用 Windows DPAPI 加密保存在本机。
+- API Key 和练习网站账号使用 Windows DPAPI 加密保存在本机。
 
 当前不支持班级名单和批量导入。
 
@@ -32,8 +32,6 @@ C++ 代码，也可以使用已授权的网站管理员账号读取提交详情�
 Python、Streamlit 或 g++，程序仅监听本机 `127.0.0.1` 并自动打开浏览器。
 
 源码开发方式要求 Python 3.11 或更高版本：
-
-要求 Python 3.11 或更高版本。
 
 ```powershell
 cd D:\work\student_code_diagnosis
@@ -55,7 +53,7 @@ start_streamlit.bat
    - 模型：`deepseek-v4-flash`
    - 模式：非思考模式
 3. 可先点击“测试连接”。
-4. 选择“题目网址＋粘贴代码”或“Vesibay提交详情网址”。
+4. 选择“题目网址＋粘贴代码”或“提交详情网址”。
 5. 手动模式下导入题面、校对内容并粘贴代码。
 6. 提交模式下先在侧边栏验证并保存网站账号，再粘贴普通或组内提交详情网址。
 7. 点击“开始AI诊断”。
@@ -84,7 +82,7 @@ Windows 用户解密；
 升级或卸载程序不会把个人设置打包进安装目录。首次运行新版本时，程序会把旧源码
 目录中的设置和数据迁移到上述用户数据目录；目标位置已有文件时不会覆盖。
 
-Vesibay 用户名和密码使用相同的本机加密存储。程序启动后用它们换取网站
+练习网站用户名和密码使用相同的本机加密存储。程序启动后用它们换取网站
 `Authorization` 令牌，令牌只驻留当前进程内存。网站目前返回的是管理员令牌，
 并非服务端限制权限的只读令牌；“只读”由本工具的固定接口白名单保证。
 
@@ -127,7 +125,7 @@ Windows本地验证程序使用128MB栈保留空间，以减少OJ与Windows默�
 
 ## 安全边界
 
-- 题目导入仅允许 HTTPS 的 `www.vesibay.cn` 公开题路径；
+- 题目导入仅允许预设的特定练习网站 HTTPS 地址；
 - 实际 API 地址由程序从题号构造，不直接请求任意用户网址；
 - 禁止自动跳转，限制响应大小并设置超时；
 - 题面和代码按不可信数据放入提示词；
@@ -159,7 +157,7 @@ GitHub 下载新版安装程序覆盖安装。
 python -m pytest -ra
 ```
 
-网络服务测试使用注入的假传输层，不依赖真实 API Key 或网络。真实 Vesibay 导入
+网络服务测试使用注入的假传输层，不依赖真实 API Key 或网络。真实练习网站导入
 可在人工测试时单独验证。
 
 ## Windows 打包与发布
@@ -178,11 +176,11 @@ powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1
 
 - `models/imported_problem.py`：导入后的题面与公开样例；
 - `models/ai_code_diagnosis.py`：结构化 AI 诊断结果；
-- `models/vesibay_submission.py`：脱敏后的 OJ 提交与测试点证据；
-- `services/problem_importer.py`：Vesibay 公开题导入；
+- 提交证据模型：保存脱敏后的 OJ 提交与测试点证据；
+- 题目导入服务：负责特定练习网站的公开题导入；
 - `services/json_http_client.py`：有大小、超时和重定向限制的 JSON HTTP；
 - `services/ai_code_diagnosis_service.py`：提示词、API 请求和结果校验；
-- `services/vesibay_readonly_client.py`：管理员登录和固定白名单只读导入；
+- 网站只读客户端：负责管理员登录和固定白名单只读导入；
 - `services/secret_store.py`：Windows DPAPI 本地凭据保护；
 - `services/credential_service.py`：模型和网站凭据管理；
 - `services/settings_service.py`：非敏感模型设置；
