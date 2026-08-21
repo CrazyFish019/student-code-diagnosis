@@ -27,13 +27,18 @@ def status_card_view(status: str) -> tuple[str, str]:
 def detail_tab_labels(
     status: str, has_local_execution: bool = False
 ) -> tuple[str, ...]:
+    if status == "AC":
+        return ("输入数据", "标准输出")
     if status == "WA":
         base = ("输入数据", "标准输出")
         return base + (("学生实际输出",) if has_local_execution else ())
     if status == "RE":
         base = ("运行错误", "输入数据", "标准输出")
         return base + (("本地运行",) if has_local_execution else ())
-    return ()
+    if status == "TLE":
+        base = ("超时信息", "输入数据", "标准输出")
+        return base + (("本地运行",) if has_local_execution else ())
+    return ("状态信息", "输入数据", "标准输出")
 
 
 def case_selection_key(submission_id: str, index: int, case_id: str) -> str:
@@ -50,7 +55,7 @@ def render_testcase_details(
         "测试点详情",
         expanded=consume_testcase_details_open(st.session_state),
     ):
-        st.caption("右上角复选框用于选择；点击WA或RE方块可查看详情。")
+        st.caption("右上角复选框用于选择；点击任意测试点方块可查看详情。")
         _render_card_styles()
         columns = st.columns(min(8, max(1, len(cases))))
         selected = set(st.session_state["selected_oj_case_ids"])
@@ -80,8 +85,7 @@ def render_testcase_details(
                         on_click=keep_testcase_details_open,
                         args=(st.session_state,),
                     ):
-                        if case.status in {"WA", "RE"}:
-                            detail_to_show = (case, index)
+                        detail_to_show = (case, index)
                 st.caption(f"测试点 {index + 1}")
 
         st.session_state["selected_oj_case_ids"] = tuple(selected_after_render)
@@ -147,8 +151,70 @@ def _show_testcase_dialog(case: OJCaseEvidence, index: int) -> None:
         if has_local_execution:
             with tabs[3]:
                 _render_local_execution(case, index)
+    elif case.status == "AC":
+        input_tab, expected_tab = st.tabs(
+            detail_tab_labels(case.status, has_local_execution)
+        )
+        with input_tab:
+            _render_case_input(case, index, key_prefix="ac")
+        with expected_tab:
+            _render_case_expected_output(case, index, key_prefix="ac")
+    else:
+        tabs = st.tabs(detail_tab_labels(case.status, has_local_execution))
+        status_tab, input_tab, expected_tab = tabs[:3]
+        with status_tab:
+            if case.status == "TLE":
+                st.error("程序运行时间超过题目限制。")
+            else:
+                st.info(f"该测试点状态：{case.status}")
+            _render_execution_metrics(case)
+        with input_tab:
+            _render_case_input(case, index, key_prefix=case.status.lower())
+        with expected_tab:
+            _render_case_expected_output(
+                case, index, key_prefix=case.status.lower()
+            )
+        if has_local_execution:
+            with tabs[3]:
+                _render_local_execution(case, index)
     if st.button("关闭", key=f"close_oj_case_dialog_{index}"):
         st.rerun()
+
+
+def _render_case_input(
+    case: OJCaseEvidence, index: int, *, key_prefix: str
+) -> None:
+    _render_text_content(
+        case.input_data,
+        empty_label="（空输入）",
+        filename=f"testcase_{index + 1}.in",
+        key=f"download_{key_prefix}_case_input_{index}",
+    )
+
+
+def _render_case_expected_output(
+    case: OJCaseEvidence, index: int, *, key_prefix: str
+) -> None:
+    _render_text_content(
+        case.expected_output,
+        empty_label="（空输出）",
+        filename=f"testcase_{index + 1}.out",
+        key=f"download_{key_prefix}_case_expected_{index}",
+    )
+
+
+def _render_execution_metrics(case: OJCaseEvidence) -> None:
+    time_text = (
+        f"{case.execution_time_ms} ms"
+        if case.execution_time_ms is not None
+        else "未提供"
+    )
+    memory_text = (
+        f"{case.memory_bytes:,} 字节"
+        if case.memory_bytes is not None
+        else "未提供"
+    )
+    st.caption(f"运行时间：{time_text} · 内存：{memory_text}")
 
 
 def _render_text_content(

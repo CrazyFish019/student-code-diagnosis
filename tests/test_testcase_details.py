@@ -26,6 +26,10 @@ def test_wa_details_only_show_reliable_oj_evidence() -> None:
     )
 
 
+def test_ac_details_include_input_and_expected_output() -> None:
+    assert detail_tab_labels("AC") == ("输入数据", "标准输出")
+
+
 def test_re_details_include_error_input_and_expected_output() -> None:
     assert detail_tab_labels("RE") == ("运行错误", "输入数据", "标准输出")
     assert detail_tab_labels("RE", True) == (
@@ -34,3 +38,17 @@ def test_re_details_include_error_input_and_expected_output() -> None:
         "标准输出",
         "本地运行",
     )
+
+
+def test_tle_details_include_timeout_input_and_expected_output() -> None:
+    assert detail_tab_labels("TLE") == ("超时信息", "输入数据", "标准输出")
+    assert detail_tab_labels("TLE", True) == (
+        "超时信息",
+        "输入数据",
+        "标准输出",
+        "本地运行",
+    )
+
+
+def test_unknown_status_still_has_a_detail_view() -> None:
+    assert detail_tab_labels("MLE") == ("状态信息", "输入数据", "标准输出")
