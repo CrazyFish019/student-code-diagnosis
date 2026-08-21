@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from models.ai_code_diagnosis import AICodeDiagnosis
+from models.code_language import CodeLanguage
 from models.imported_problem import ImportedProblem
 from models.vesibay_submission import VesibaySubmissionEvidence
 from services.ai_diagnosis_prompt import (
@@ -43,7 +44,7 @@ def diagnose_code(
     if not isinstance(problem, ImportedProblem):
         raise TypeError("problem must be an ImportedProblem")
     if not isinstance(source_code, str) or not source_code.strip():
-        raise AIDiagnosisError("请粘贴待诊断的C++代码。")
+        raise AIDiagnosisError("请粘贴待诊断的代码。")
     if len(source_code) > 100_000:
         raise AIDiagnosisError("学生代码过长，请缩短后重试。")
     if not isinstance(api_key, str) or not api_key.strip():
@@ -68,6 +69,11 @@ def diagnose_code(
                 "content": _system_prompt(
                     oj_evidence is not None,
                     _has_local_execution(oj_evidence, selected_case_ids),
+                    (
+                        oj_evidence.language
+                        if oj_evidence is not None
+                        else CodeLanguage.CPP
+                    ),
                 ),
             },
             {

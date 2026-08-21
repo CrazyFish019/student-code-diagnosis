@@ -8,6 +8,7 @@ import streamlit as st
 
 from core.runtime_storage import migrate_legacy_runtime_data
 from models.ai_code_diagnosis import AICodeDiagnosis
+from models.code_language import CodeLanguage
 from models.imported_problem import ImportedProblem
 from models.vesibay_submission import VesibaySubmissionEvidence
 from services.ai_code_diagnosis_service import AIDiagnosisError, diagnose_code
@@ -16,6 +17,7 @@ from services.selected_case_runner import (
     run_selected_testcases,
 )
 from services.settings_service import AppSettings
+from ui.components.application_control import render_application_control
 from ui.components.ai_diagnosis_view import render_ai_diagnosis, render_source_input
 from ui.components.model_settings import render_model_settings
 from ui.components.problem_import import render_problem_import
@@ -53,6 +55,7 @@ def main() -> None:
     settings, api_key = render_model_settings()
     render_update_view()
     diagnosis_active = is_ai_diagnosis_active(st.session_state)
+    render_application_control(diagnosis_active=diagnosis_active)
     mode = st.radio(
         "诊断方式",
         ("题目网址＋粘贴代码", "提交详情网址"),
@@ -160,6 +163,18 @@ def _render_diagnosis_section(
                 diagnosis,
                 has_oj_evidence=bool(
                     st.session_state.get("ai_diagnosis_has_oj_evidence")
+                ),
+                language=(
+                    oj_evidence.language
+                    if oj_evidence is not None
+                    else CodeLanguage.CPP
+                ),
+                has_local_execution=(
+                    oj_evidence is not None
+                    and any(
+                        case.local_execution_status is not None
+                        for case in oj_evidence.cases
+                    )
                 ),
             )
 

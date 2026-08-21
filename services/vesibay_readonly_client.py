@@ -10,6 +10,7 @@ from pathlib import PurePosixPath
 from typing import Any
 from urllib.parse import urlparse
 
+from models.code_language import CodeLanguage
 from models.vesibay_submission import OJCaseEvidence, VesibaySubmissionEvidence
 from services.json_http_client import (
     JsonHttpResponse,
@@ -101,6 +102,7 @@ class VesibayReadOnlyClient:
         if not submission:
             raise VesibayAccessError("提交详情数据不完整。")
         source_code = _required_visible_text(submission.get("code"), "无法读取提交源码。")
+        language = _submission_language(submission.get("language"))
         problem_id = _required_visible_text(
             submission.get("displayPid"), "提交记录中没有有效题号。"
         )
@@ -137,6 +139,7 @@ class VesibayReadOnlyClient:
             final_status=_status_name(submission.get("status")),
             score=_optional_number(submission.get("score")),
             cases=cases,
+            language=language,
         )
 
     def _login(self, credentials: VesibayCredentials) -> str:
@@ -245,6 +248,17 @@ def parse_submission_url(url: str) -> str:
     if match is None:
         raise VesibayAccessError("该网址中没有可识别的提交编号，请确认它是提交报告网址。")
     return match.group(1)
+
+
+def _submission_language(value: Any) -> CodeLanguage:
+    if not isinstance(value, str) or not value.strip():
+        raise VesibayAccessError("提交记录中没有可识别的代码语言。")
+    normalized = re.sub(r"[^a-z0-9+]", "", value.lower())
+    if normalized in {"c++", "cpp", "c++11", "c++14", "c++17", "c++20"}:
+        return CodeLanguage.CPP
+    if normalized in {"python", "python3", "py3", "pypy3"}:
+        return CodeLanguage.PYTHON
+    raise VesibayAccessError(f"暂不支持该提交使用的代码语言：{value.strip()}。")
 
 
 def _parse_case(

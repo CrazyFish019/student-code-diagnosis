@@ -10,6 +10,16 @@ from models import ExecutionStatus
 from services.process_runner import decode_captured_output, run_process
 
 
+def test_windows_runner_configuration_prevents_console_flash() -> None:
+    if os.name != "nt":
+        return
+    source_path = (
+        Path(__file__).resolve().parents[1] / "services" / "process_runner.py"
+    )
+    source = source_path.read_text(encoding="utf-8")
+    assert "subprocess.CREATE_NO_WINDOW" in source
+
+
 def python_command(code: str, *arguments: str | Path) -> list[str | Path]:
     return [Path(sys.executable), "-c", code, *arguments]
 

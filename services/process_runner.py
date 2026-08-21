@@ -310,7 +310,10 @@ def run_process(
         ) as working_directory:
             popen_options: dict[str, object] = {}
             if os.name == "nt":
-                popen_options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+                popen_options["creationflags"] = (
+                    subprocess.CREATE_NEW_PROCESS_GROUP
+                    | subprocess.CREATE_NO_WINDOW
+                )
             else:
                 popen_options["start_new_session"] = True
 

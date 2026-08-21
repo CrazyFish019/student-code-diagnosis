@@ -54,7 +54,8 @@ def render_submission_import(
     score_col.metric("得分", "-" if evidence.score is None else f"{evidence.score:g}")
     case_col.metric("测试点", len(evidence.cases))
     st.write(f"题目：{evidence.problem.external_problem_id} {evidence.problem.title}")
+    st.write(f"代码语言：{evidence.language.display_name}")
     render_testcase_details(evidence.cases, evidence.submission_id)
-    render_source_code(evidence.source_code)
+    render_source_code(evidence.source_code, evidence.language)
     st.caption("测试点内容默认仅在本机查看；身份信息和IP不会发送给模型。")
     return evidence

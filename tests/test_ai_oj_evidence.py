@@ -2,6 +2,7 @@ import json
 from dataclasses import replace
 
 from models.imported_problem import ImportedProblem
+from models.code_language import CodeLanguage
 from models.execution_result import ExecutionStatus
 from models.vesibay_submission import OJCaseEvidence, VesibaySubmissionEvidence
 from services.ai_code_diagnosis_service import (
@@ -49,6 +50,8 @@ def test_oj_prompt_contains_failed_case_without_identity_fields() -> None:
 
     oj = payload["oj_judge_evidence"]
     assert oj["final_status"] == "WA"
+    assert payload["code_language"] == "cpp"
+    assert oj["code_language"] == "cpp"
     assert oj["case_status_counts"] == {"AC": 1, "WA": 1}
     assert oj["student_output_available"] is False
     assert "权威标准答案" in oj["evidence_semantics"]
@@ -85,6 +88,28 @@ def test_oj_system_prompt_forbids_inventing_student_output() -> None:
     assert "逐行对应" in prompt
     assert "明确验算" in prompt
     assert "循环起止范围" in prompt
+
+
+def test_python_submission_prompt_uses_python_language_rules() -> None:
+    from services.ai_code_diagnosis_service import _system_prompt
+
+    evidence = replace(
+        _evidence(),
+        source_code="print(input())",
+        language=CodeLanguage.PYTHON,
+    )
+    prompt = _user_prompt(
+        evidence.problem,
+        evidence.source_code,
+        oj_evidence=evidence,
+    )
+    payload = json.loads(prompt.split("\n", 1)[1])
+    system = _system_prompt(language=CodeLanguage.PYTHON)
+
+    assert payload["code_language"] == "python"
+    assert payload["oj_judge_evidence"]["code_language"] == "python"
+    assert "Python 3代码" in system
+    assert "不得套用其他语言规则" in system
 
 
 def test_local_execution_output_is_labeled_and_sent_to_model() -> None:

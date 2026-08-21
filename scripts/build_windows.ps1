@@ -29,10 +29,11 @@ if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup build failed."
 }
 
-$installer = Get-ChildItem -LiteralPath "dist\installer" -Filter "*.exe" | Select-Object -First 1
-if (-not $installer) {
+$installerPath = Join-Path $projectRoot "dist\installer\StudentCodeDiagnosis-Setup-$version.exe"
+if (-not (Test-Path -LiteralPath $installerPath -PathType Leaf)) {
     throw "Installer was not generated."
 }
+$installer = Get-Item -LiteralPath $installerPath
 $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer.FullName).Hash.ToLowerInvariant()
 "$hash  $($installer.Name)" | Set-Content -LiteralPath "$($installer.FullName).sha256" -Encoding ascii
 Write-Output $installer.FullName

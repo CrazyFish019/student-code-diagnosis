@@ -94,6 +94,31 @@ def test_running_diagnosis_keeps_one_disabled_button_in_place(
     assert import_button.disabled is True
 
 
+def test_packaged_session_shows_exit_control_and_disables_it_during_diagnosis(
+    tmp_path, monkeypatch
+) -> None:
+    configure_settings(monkeypatch, tmp_path)
+    monkeypatch.setenv(
+        "STUDENT_CODE_DIAGNOSIS_CONTROL_URL",
+        "http://127.0.0.1:18599",
+    )
+    monkeypatch.setenv("STUDENT_CODE_DIAGNOSIS_CONTROL_TOKEN", "local-token")
+    app = AppTest.from_file(APP_PATH).run(timeout=15)
+
+    exit_button = next(
+        item for item in app.button if item.label == "退出诊断工具"
+    )
+    assert exit_button.disabled is False
+
+    app.session_state["ai_diagnosis_running"] = True
+    app = app.run(timeout=15)
+
+    exit_button = next(
+        item for item in app.button if item.label == "退出诊断工具"
+    )
+    assert exit_button.disabled is True
+
+
 def test_report_section_is_not_configured_for_permanent_auto_refresh() -> None:
     source = (APP_PATH.parent / "ui" / "app.py").read_text(encoding="utf-8")
 

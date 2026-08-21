@@ -1,6 +1,9 @@
+from models.code_language import CodeLanguage
 from ui.components.ai_diagnosis_view import (
     category_label,
+    format_code_for_display,
     format_cpp_for_display,
+    split_code_example,
     split_cpp_example,
 )
 
@@ -47,3 +50,17 @@ def test_suggestion_cpp_example_is_separated_and_formatted() -> None:
     assert code is not None
     assert "judge(i,j);\n" in code
     assert "    num++;" in code
+
+
+def test_python_code_keeps_meaningful_newlines_and_python_highlighting() -> None:
+    source = "```python\nfor value in values:\n    print(value)\n```"
+
+    formatted = format_code_for_display(source, CodeLanguage.PYTHON)
+    prose, code = split_code_example(
+        "使用循环：\n```python\nfor value in values:\n    print(value)\n```",
+        CodeLanguage.PYTHON,
+    )
+
+    assert formatted == "for value in values:\n    print(value)"
+    assert prose == "使用循环："
+    assert code == formatted

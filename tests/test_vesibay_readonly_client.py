@@ -1,6 +1,7 @@
 import io
 import zipfile
 
+from models.code_language import CodeLanguage
 from services.binary_http_client import BinaryHttpResponse
 from services.json_http_client import JsonHttpResponse
 from services.vesibay_readonly_client import (
@@ -93,6 +94,7 @@ def _transport() -> FakeTransport:
                             "status": 8,
                             "score": 50,
                             "code": "int main() { return 0; }",
+                            "language": "C++",
                             "username": "must-not-leak",
                             "ip": "127.0.0.1",
                         }
@@ -208,12 +210,49 @@ def test_import_submission_returns_sanitized_problem_source_and_cases() -> None:
     assert result.submission_id == "48543"
     assert result.problem.external_problem_id == "P1000"
     assert result.source_code == "int main() { return 0; }"
+    assert result.language is CodeLanguage.CPP
     assert result.final_status == "PARTIAL_ACCEPTED"
     assert result.score == 50
     assert [item.status for item in result.cases] == ["AC", "WA"]
     assert result.cases[1].input_data == "2 3"
     assert not hasattr(result, "username")
     assert not hasattr(result, "ip")
+
+
+def test_python_submission_language_is_detected_from_site_field() -> None:
+    transport = _transport()
+    submission = transport.responses[
+        ("GET", "https://www.vesibay.cn/api/get-submission-detail?submitId=48543")
+    ].payload["data"]["submission"]
+    submission["language"] = "Python3"
+    submission["code"] = "print(sum(map(int, input().split())))"
+
+    result = VesibayReadOnlyClient(transport=transport).import_submission(
+        "https://www.vesibay.cn/submission-detail/48543",
+        VesibayCredentials("admin", "password"),
+    )
+
+    assert result.language is CodeLanguage.PYTHON
+    assert result.source_code.startswith("print(")
+
+
+def test_unsupported_submission_language_is_teacher_facing() -> None:
+    transport = _transport()
+    submission = transport.responses[
+        ("GET", "https://www.vesibay.cn/api/get-submission-detail?submitId=48543")
+    ].payload["data"]["submission"]
+    submission["language"] = "Java"
+
+    try:
+        VesibayReadOnlyClient(transport=transport).import_submission(
+            "https://www.vesibay.cn/submission-detail/48543",
+            VesibayCredentials("admin", "password"),
+        )
+    except VesibayAccessError as exc:
+        assert "暂不支持" in str(exc)
+        assert "Java" in str(exc)
+    else:
+        raise AssertionError("unsupported language was not rejected")
 
 
 def test_uploaded_testcase_filenames_are_replaced_with_archive_contents() -> None:

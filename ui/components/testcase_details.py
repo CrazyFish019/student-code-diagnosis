@@ -6,6 +6,7 @@ import re
 
 import streamlit as st
 
+from models.code_language import CodeLanguage
 from models.vesibay_submission import OJCaseEvidence
 from services.runtime_error_explainer import runtime_error_causes
 from ui.state import consume_testcase_details_open, keep_testcase_details_open
@@ -96,9 +97,12 @@ def render_testcase_details(
     return tuple(st.session_state.get("selected_oj_case_ids", ()))
 
 
-def render_source_code(source_code: str) -> None:
+def render_source_code(
+    source_code: str,
+    language: CodeLanguage = CodeLanguage.CPP,
+) -> None:
     with st.expander("学生源码", expanded=False):
-        st.code(source_code, language="cpp", line_numbers=True)
+        st.code(source_code, language=language.syntax_name, line_numbers=True)
 
 
 @st.dialog("测试点详情")

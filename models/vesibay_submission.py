@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from core.exceptions import ModelValidationError
+from models.code_language import CodeLanguage
 from models.execution_result import ExecutionStatus
 from models.imported_problem import ImportedProblem
 
@@ -87,6 +88,7 @@ class VesibaySubmissionEvidence:
     final_status: str
     score: float | None
     cases: tuple[OJCaseEvidence, ...]
+    language: CodeLanguage = CodeLanguage.CPP
 
     def __post_init__(self) -> None:
         if not isinstance(self.submission_id, str) or not self.submission_id.strip():
@@ -97,6 +99,8 @@ class VesibaySubmissionEvidence:
             raise ModelValidationError("source_code must be non-empty")
         if not isinstance(self.final_status, str) or not self.final_status.strip():
             raise ModelValidationError("final_status must be non-empty")
+        if not isinstance(self.language, CodeLanguage):
+            raise ModelValidationError("language must be a CodeLanguage")
         if self.score is not None and (
             isinstance(self.score, bool) or not isinstance(self.score, (int, float))
         ):

@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import tempfile
 import os
+import sys
 from dataclasses import replace
 from pathlib import Path
 
 from core.config import TEMP_DIR
+from core.launcher_protocol import PYTHON_RUNNER_EXECUTABLE
+from models.code_language import CodeLanguage
 from models.compile_result import CompileStatus
 from models.vesibay_submission import VesibaySubmissionEvidence
 from services.compiler import compile_cpp
@@ -24,6 +27,7 @@ def run_selected_testcases(
     *,
     compiler: str | Path = "g++",
     compile_timeout_ms: int = 20_000,
+    python_interpreter: str | Path | None = None,
 ) -> VesibaySubmissionEvidence:
     """Return a copy enriched with local results for the selected cases only.
 
@@ -50,19 +54,13 @@ def run_selected_testcases(
         with tempfile.TemporaryDirectory(
             prefix="student-diagnosis-selected-", dir=TEMP_DIR
         ) as root:
-            compiled = compile_cpp(
-                evidence.source_code,
-                output_dir=root,
-                timeout_ms=compile_timeout_ms,
+            command = _prepare_program_command(
+                evidence,
+                root=Path(root),
                 compiler=compiler,
-                output_name="selected-case-program",
-                extra_args=(
-                    ("-Wl,--stack,134217728",) if os.name == "nt" else ()
-                ),
+                compile_timeout_ms=compile_timeout_ms,
+                python_interpreter=python_interpreter,
             )
-            if not compiled.success:
-                raise SelectedCaseExecutionError(_compile_failure_message(compiled.status))
-            assert compiled.executable_path is not None
             selected_set = set(selected_ids)
             enriched_cases = []
             for case in evidence.cases:
@@ -79,7 +77,7 @@ def run_selected_testcases(
                     enriched_cases.append(clean_case)
                     continue
                 execution = run_process(
-                    [compiled.executable_path],
+                    command,
                     stdin_data=case.input_data,
                     time_limit_ms=local_time_limit_ms,
                     temp_root=root,
@@ -102,6 +100,53 @@ def run_selected_testcases(
         raise
     except OSError as exc:
         raise SelectedCaseExecutionError("无法创建或清理本地临时运行目录。") from exc
+
+
+def _prepare_program_command(
+    evidence: VesibaySubmissionEvidence,
+    *,
+    root: Path,
+    compiler: str | Path,
+    compile_timeout_ms: int,
+    python_interpreter: str | Path | None,
+) -> list[str | Path]:
+    if evidence.language is CodeLanguage.PYTHON:
+        source_path = root / "selected-case-program.py"
+        source_path.write_text(evidence.source_code, encoding="utf-8", newline="")
+        return python_execution_command(
+            source_path,
+            interpreter=python_interpreter,
+        )
+
+    compiled = compile_cpp(
+        evidence.source_code,
+        output_dir=root,
+        timeout_ms=compile_timeout_ms,
+        compiler=compiler,
+        output_name="selected-case-program",
+        extra_args=(("-Wl,--stack,134217728",) if os.name == "nt" else ()),
+    )
+    if not compiled.success:
+        raise SelectedCaseExecutionError(_compile_failure_message(compiled.status))
+    assert compiled.executable_path is not None
+    return [compiled.executable_path]
+
+
+def python_execution_command(
+    source_path: Path,
+    *,
+    interpreter: str | Path | None = None,
+) -> list[str | Path]:
+    if interpreter is not None:
+        return [interpreter, "-I", "-X", "utf8", source_path]
+    if getattr(sys, "frozen", False):
+        bundled_runner = Path(sys.executable).with_name(PYTHON_RUNNER_EXECUTABLE)
+        if not bundled_runner.is_file():
+            raise SelectedCaseExecutionError(
+                "安装文件不完整：缺少Python本地执行器。"
+            )
+        return [bundled_runner, source_path]
+    return [sys.executable, "-I", "-X", "utf8", source_path]
 
 
 def _compile_failure_message(status: CompileStatus) -> str:

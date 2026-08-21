@@ -7,6 +7,7 @@ import re
 import streamlit as st
 
 from models.ai_code_diagnosis import AICodeDiagnosis
+from models.code_language import CodeLanguage
 
 
 _CATEGORY_LABELS = {
@@ -112,6 +113,34 @@ def split_cpp_example(text: str) -> tuple[str, str | None]:
     return text, None
 
 
+def format_code_for_display(code: str, language: CodeLanguage) -> str:
+    if language is CodeLanguage.CPP:
+        return format_cpp_for_display(code)
+    value = code.replace("\r\n", "\n").replace("\r", "\n").strip()
+    fenced = re.fullmatch(
+        r"```(?:python|py|python3)?\s*\n?(.*?)\n?```",
+        value,
+        re.DOTALL | re.IGNORECASE,
+    )
+    return fenced.group(1).strip() if fenced else value
+
+
+def split_code_example(
+    text: str, language: CodeLanguage
+) -> tuple[str, str | None]:
+    if language is CodeLanguage.CPP:
+        return split_cpp_example(text)
+    fenced = re.search(
+        r"```(?:python|py|python3)?\s*\n?(.*?)\n?```",
+        text,
+        re.DOTALL | re.IGNORECASE,
+    )
+    if fenced:
+        prose = (text[: fenced.start()] + text[fenced.end() :]).strip()
+        return prose, format_code_for_display(fenced.group(1), language)
+    return text, None
+
+
 def _looks_like_cpp(value: str) -> bool:
     return ";" in value and bool(
         re.search(
@@ -158,10 +187,16 @@ def render_source_input() -> str:
 
 
 def render_ai_diagnosis(
-    diagnosis: AICodeDiagnosis, *, has_oj_evidence: bool = False
+    diagnosis: AICodeDiagnosis,
+    *,
+    has_oj_evidence: bool = False,
+    has_local_execution: bool = False,
+    language: CodeLanguage = CodeLanguage.CPP,
 ) -> None:
     st.subheader("5. AI诊断结果")
-    if has_oj_evidence:
+    if has_local_execution:
+        st.info("本结果结合OJ判题记录和教师选中测试点的本地运行结果生成。")
+    elif has_oj_evidence:
         st.info("本结果结合OJ已有判题记录生成；本工具没有重新运行学生代码。")
     else:
         st.warning("本结果基于题面、公开样例和学生代码生成，未经编译运行或隐藏测试验证。")
@@ -184,18 +219,22 @@ def render_ai_diagnosis(
             line = f"第 {item.line} 行" if item.line else "未定位行号"
             st.markdown(f"**{line}：** {item.explanation}")
             if item.code:
-                st.code(format_cpp_for_display(item.code), language="cpp", wrap_lines=True)
+                st.code(
+                    format_code_for_display(item.code, language),
+                    language=language.syntax_name,
+                    wrap_lines=True,
+                )
     if diagnosis.sample_analysis:
         st.markdown("### 公开样例推演")
         for item in diagnosis.sample_analysis:
             st.markdown(f"- 样例 {item.sample_index}：{item.analysis}")
     st.markdown("### 修改建议")
     for item in diagnosis.suggestions:
-        prose, code = split_cpp_example(item)
+        prose, code = split_code_example(item, language)
         if prose:
             st.markdown(f"- {prose}")
         if code:
-            st.code(code, language="cpp", wrap_lines=True)
+            st.code(code, language=language.syntax_name, wrap_lines=True)
     teacher, learner = st.columns(2)
     with teacher:
         st.markdown("### 教师参考")

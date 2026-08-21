@@ -9,6 +9,7 @@ from .ai_code_diagnosis import (
 )
 from .imported_problem import ImportedProblem, ProblemExample
 from .compile_result import CompileResult, CompileStatus
+from .code_language import CodeLanguage
 from .diagnosis import Diagnosis
 from .diagnosis_report import DiagnosisReport
 from .execution_result import ExecutionResult, ExecutionStatus
@@ -39,6 +40,7 @@ __all__ = [
     "ProblemExample",
     "CompileResult",
     "CompileStatus",
+    "CodeLanguage",
     "Diagnosis",
     "DiagnosisReport",
     "ExecutionResult",
