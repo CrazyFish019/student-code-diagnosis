@@ -167,6 +167,9 @@ def test_real_cpp_program_compiles_and_runs_with_stdin(tmp_path: Path) -> None:
         output_dir=tmp_path / "compiled programs with spaces",
         compiler=GPP or "g++",
         output_name="echo program",
+        # Hosted Windows runners occasionally need more than the service default
+        # while warming the compiler cache. Keep this integration test tolerant.
+        timeout_ms=30_000,
     )
 
     assert result.status is CompileStatus.SUCCESS
